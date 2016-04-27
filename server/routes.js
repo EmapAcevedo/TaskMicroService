@@ -31,14 +31,12 @@ router.route('/tasks/:userId')
       if(err) {
         return res.status(500).send(err);
       }
-	  if(task.Reminder){
+	  if(task.Daysbefore){
 		var date = new Date(task.Duedate);
-		 date.setDate(date.getDate()-task.Reminder.Daysbefore);
-		var matches = task.Reminder.Time.match(/(\d+):(\d+)/);
-		var hours = matches[1];
-		var minutes= matches[2];
-		date.setMinutes(minutes);
-		date.setHours(hours);
+		 date.setDate(date.getDate()-task.Daysbefore);
+		var datetemp=new Date(task.Time);
+		date.setMinutes(datetemp.getMinutes());
+		date.setHours(datetemp.getHours());
 		
 		// setup e-mail data with unicode symbols
 		var mailOptions = {
@@ -133,6 +131,67 @@ router.route('/tasks/:taskId')
         }
         return res.status(200).json(task);
       });
+    });
+  });
+  
+  //Report of tasks.
+  
+router.route('/tasks/report/:userId')
+  .get(function(req, res){
+    tasksModel.find( {Owner: req.params.userId },function(err, tasks){
+      if(err){
+        return res.status(500).send(err);
+      }
+      //create Report
+      var report = {
+       CompletedTasks:
+		{
+		CompletedOnTime: 0,
+		CompletedBeforeTime: 0,
+		CompletedAfterDueDate: 0
+		},
+		AvailableTasks:
+		{
+		TasksOnReminderTime: 0,
+		TaskToBeDone: 0,
+		TasksForToday: 0
+		}
+      };
+	  var available=[];
+      tasks.forEach(function(task, index){
+		switch(task.Completed){
+			case 'Ontime':
+			report.CompletedTasks.CompletedOnTime++;
+			break;
+			case 'Before':
+			report.CompletedTasks.CompletedBeforeTime++;
+			break;
+			case 'Late':
+			report.CompletedTasks.CompletedAfterDueDate++;
+			break;
+			case 'NotYet':
+			available.push(task);
+			
+		}
+		
+      });
+		report.TaskToBeDone= available.length;
+		available.forEach(function(task, index){
+			console.log(task.dueDate);
+		switch(taskUtils.getDateValue(new Date(Date.now()), new Date(task.Duedate))){
+			case 'Ontime':
+			report.AvailableTasks.TasksForToday++;
+			break;
+			case 'Before':
+			report.AvailableTasks.TasksOnReminderTime++;
+			break;
+			
+		}
+		
+      });
+		
+	 
+      return res.status(200).json(report);
     });
   });
 
